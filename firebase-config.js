@@ -5,8 +5,7 @@
 // 3) เปิด Firestore Database และตั้ง Rules ตาม README.md
 
 export const firebaseConfig = {
-
-  apiKey: "AIzaSyDN1Ie5kk6UVaCb-K-Jd-k1IaPoSBfMPbc",
+ apiKey: "AIzaSyDN1Ie5kk6UVaCb-K-Jd-k1IaPoSBfMPbc",
   authDomain: "leave-request-management-e1787.firebaseapp.com",
   projectId: "leave-request-management-e1787",
   storageBucket: "leave-request-management-e1787.firebasestorage.app",
