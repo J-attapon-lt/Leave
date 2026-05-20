@@ -232,8 +232,8 @@ function pdfStyle(x,y,w=120,h=22){
   return `left:${(x/W*100).toFixed(4)}%;top:${(y/H*100).toFixed(4)}%;width:${(w/W*100).toFixed(4)}%;min-height:${(h/H*100).toFixed(4)}%;`;
 }
 
-const CAL_KEY = 'hr018_print_calibration_v3';
-let printCal = (() => { try { return JSON.parse(localStorage.getItem(CAL_KEY)) || {x:-18,y:-14,font:3}; } catch { return {x:-18,y:-14,font:3}; } })();
+const CAL_KEY = 'hr018_print_calibration_exact_v1';
+let printCal = (() => { try { return JSON.parse(localStorage.getItem(CAL_KEY)) || {x:0,y:0,font:0}; } catch { return {x:0,y:0,font:0}; } })();
 function calibrationStyle(){
   return `--cal-x:${printCal.x || 0}px;--cal-y:${printCal.y || 0}px;--cal-font:${printCal.font || 0}px;`;
 }
@@ -252,15 +252,12 @@ function bindCalibration(){
   };
   [cy,cx,cf].forEach(el => el.addEventListener('input', apply));
   const reset = $('btnResetCal');
-  if(reset) reset.addEventListener('click', () => { printCal = {x:-18,y:-14,font:3}; localStorage.setItem(CAL_KEY, JSON.stringify(printCal)); sync(); apply(); });
+  if(reset) reset.addEventListener('click', () => { printCal = {x:0,y:0,font:0}; localStorage.setItem(CAL_KEY, JSON.stringify(printCal)); sync(); apply(); });
   sync();
 }
 
-const PDF_VALUE_DY = 18;      // default: move typed text lower to sit on dotted lines
-const PDF_TINY_DY = 14;        // smaller table values need a little less shift
 function pdfVal(x,y,w,text,cls=''){
-  const dy = cls.includes('tiny') ? PDF_TINY_DY : PDF_VALUE_DY;
-  return `<span class="pdf-value ${cls}" style="${pdfStyle(x,y + dy,w)}">${esc(text || '')}</span>`;
+  return `<span class="pdf-value ${cls}" style="${pdfStyle(x,y,w)}">${esc(text || '')}</span>`;
 }
 function pdfTiny(x,y,w,text){ return pdfVal(x,y,w,text,'tiny'); }
 function pdfCheck(x,y,active){ return `<span class="pdf-check" style="${pdfStyle(x,y,28,28)}">${active ? '✓' : ''}</span>`; }
@@ -282,41 +279,41 @@ function renderPrint(){
   $('printDocument').innerHTML = `
     <div class="pdf-replica" style="${calibrationStyle()}" aria-label="HR-018 ใบลา แบบพิมพ์เหมือนไฟล์แนบ">
       <img class="template-img" src="./assets/hr018-template.png" alt="HR-018 template" />
-      ${pdfVal(934,133,330,r.place)}
-      ${pdfVal(955,174,48,dDoc.day)}${pdfVal(1030,174,135,dDoc.month)}${pdfVal(1195,174,78,dDoc.year)}
-      ${pdfVal(155,214,535,r.toPerson)}
-      ${pdfVal(155,253,390,r.employeeName)}${pdfVal(765,253,170,r.position)}${pdfVal(1045,253,185,r.department)}
+      ${pdfVal(972,131,313,r.place)}
+      ${pdfVal(962,172,36,dDoc.day)}${pdfVal(1035,175,105,dDoc.month)}${pdfVal(1201,175,58,dDoc.year)}
+      ${pdfVal(169,206,390,r.toPerson)}
+      ${pdfVal(201,243,210,r.employeeName)}${pdfVal(756,244,80,r.position)}${pdfVal(1065,245,130,r.department)}
 
       ${pdfCheck(242,282,r.leaveType==='กิจ')}${pdfCheck(332,282,r.leaveType==='ป่วย')}${pdfCheck(242,323,r.leaveType==='คลอดบุตร')}${pdfCheck(242,363,r.leaveType==='พักผ่อน')}
-      ${pdfVal(455,288,810,r.reason)}
-      ${pdfVal(558,361,170,dWork.full)}
+      ${pdfVal(455,286,800,r.reason)}
+      ${pdfVal(552,365,230,dWork.full)}
       ${pdfCheck(922,352,r.tenure==='น้อยกว่า 5 ปี')}${pdfCheck(1090,352,r.tenure==='5 ปีขึ้นไป')}
-      ${pdfVal(333,396,45,r.vacationQuota)}
+      ${pdfVal(333,395,50,r.vacationQuota)}
 
-      ${pdfVal(268,428,48,dStart.day)}${pdfVal(352,428,145,dStart.month)}${pdfVal(526,428,80,dStart.year)}
-      ${pdfVal(646,428,48,dEnd.day)}${pdfVal(725,428,145,dEnd.month)}${pdfVal(884,428,80,dEnd.year)}
-      ${pdfVal(1050,428,55,r.leaveDays)}${pdfVal(1224,428,50,r.leaveHours)}
-      ${pdfVal(478,471,780,r.partialDetail)}
-      ${pdfVal(452,510,325,r.contactAddress)}${pdfVal(920,510,235,r.phone)}
+      ${pdfVal(259,419,38,dStart.day)}${pdfVal(345,422,112,dStart.month)}${pdfVal(509,419,60,dStart.year)}
+      ${pdfVal(648,418,38,dEnd.day)}${pdfVal(730,422,116,dEnd.month)}${pdfVal(865,420,60,dEnd.year)}
+      ${pdfVal(1041,421,50,r.leaveDays)}${pdfVal(1220,421,50,r.leaveHours)}
+      ${pdfVal(478,468,780,r.partialDetail)}
+      ${pdfVal(446,505,280,r.contactAddress)}${pdfVal(937,509,125,r.phone)}
 
       ${pdfCheck(334,565,r.lastLeaveType==='กิจ')}${pdfCheck(438,565,r.lastLeaveType==='ป่วย')}${pdfCheck(560,565,r.lastLeaveType==='คลอดบุตร')}${pdfCheck(736,565,r.lastLeaveType==='พักผ่อน')}
-      ${pdfVal(205,622,45,dLastStart.day)}${pdfVal(270,622,145,dLastStart.month)}${pdfVal(470,622,80,dLastStart.year)}
-      ${pdfVal(612,622,45,dLastEnd.day)}${pdfVal(675,622,145,dLastEnd.month)}${pdfVal(875,622,80,dLastEnd.year)}
-      ${pdfVal(1050,622,55,r.lastDays)}${pdfVal(1224,622,50,r.lastHours)}
+      ${pdfVal(205,619,45,dLastStart.day)}${pdfVal(270,619,145,dLastStart.month)}${pdfVal(470,619,80,dLastStart.year)}
+      ${pdfVal(612,619,45,dLastEnd.day)}${pdfVal(675,619,145,dLastEnd.month)}${pdfVal(875,619,80,dLastEnd.year)}
+      ${pdfVal(1050,619,55,r.lastDays)}${pdfVal(1224,619,50,r.lastHours)}
 
-      ${pdfVal(172,740,405,sub(0).task)}${pdfVal(252,781,245,sub(0).person)}${pdfVal(482,781,135,sub(0).sign)}
-      ${pdfVal(715,740,405,sub(1).task)}${pdfVal(730,781,280,sub(1).person)}${pdfVal(1043,781,135,sub(1).sign)}
-      ${pdfVal(172,840,405,sub(2).task)}${pdfVal(252,880,245,sub(2).person)}${pdfVal(482,880,135,sub(2).sign)}
-      ${pdfVal(715,840,405,sub(3).task)}${pdfVal(730,880,280,sub(3).person)}${pdfVal(1043,880,135,sub(3).sign)}
+      ${pdfVal(170,724,220,sub(0).task)}${pdfVal(259,768,165,sub(0).person)}${pdfVal(480,768,135,sub(0).sign)}
+      ${pdfVal(715,724,405,sub(1).task)}${pdfVal(730,768,280,sub(1).person)}${pdfVal(1043,768,135,sub(1).sign)}
+      ${pdfVal(172,823,405,sub(2).task)}${pdfVal(252,865,245,sub(2).person)}${pdfVal(482,865,135,sub(2).sign)}
+      ${pdfVal(715,823,405,sub(3).task)}${pdfVal(730,865,280,sub(3).person)}${pdfVal(1043,865,135,sub(3).sign)}
 
       ${statCell('กิจ',1024)}${statCell('ป่วย',1069)}${statCell('คลอดบุตร',1114)}${statCell('พักผ่อน',1157)}
-      ${pdfVal(318,1318,260,r.checkerName)}${pdfVal(322,1364,260,r.checkerPosition)}${pdfVal(260,1406,260,dCheck.full)}
+      ${pdfVal(327,1311,200,r.checkerName)}${pdfVal(359,1352,210,r.checkerPosition)}${pdfVal(260,1403,260,dCheck.full)}
 
-      ${pdfVal(960,1010,270,r.employeeName)}
-      ${pdfCheck(935,1142,r.supervisorDecision==='เห็นสมควรอนุญาต')}${pdfCheck(935,1185,r.supervisorDecision==='อื่นๆ')}${pdfVal(990,1188,250,r.supervisorRemark)}
-      ${pdfVal(995,1280,250,r.supervisorName)}${pdfVal(995,1323,250,r.supervisorPosition)}${pdfVal(963,1364,250,dSup.full)}
+      ${pdfVal(1001,997,170,r.employeeName)}
+      ${pdfCheck(935,1142,r.supervisorDecision==='เห็นสมควรอนุญาต')}${pdfCheck(935,1185,r.supervisorDecision==='อื่นๆ')}${pdfVal(990,1185,250,r.supervisorRemark)}
+      ${pdfVal(968,1271,170,r.supervisorName)}${pdfVal(1030,1312,125,r.supervisorPosition)}${pdfVal(963,1361,250,dSup.full)}
       ${pdfCheck(935,1485,r.approvalStatus==='อนุญาต')}${pdfCheck(1090,1485,r.approvalStatus==='ไม่อนุญาต')}
-      ${pdfVal(995,1582,250,r.approverName)}${pdfVal(995,1625,250,r.approverPosition)}${pdfVal(963,1666,250,dApp.full)}
+      ${pdfVal(971,1568,170,r.approverName)}${pdfVal(1028,1609,130,r.approverPosition)}${pdfVal(963,1663,250,dApp.full)}
     </div>`;
 }
 function renderAll(){ renderDashboard(); renderRecords(); renderPrintSelect(); renderPrint(); }
