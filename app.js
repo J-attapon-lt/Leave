@@ -231,8 +231,33 @@ function pdfStyle(x,y,w=120,h=22){
   const W=1323,H=1874;
   return `left:${(x/W*100).toFixed(4)}%;top:${(y/H*100).toFixed(4)}%;width:${(w/W*100).toFixed(4)}%;min-height:${(h/H*100).toFixed(4)}%;`;
 }
-const PDF_VALUE_DY = 11;      // move typed text down to sit on dotted lines
-const PDF_TINY_DY = 8;        // smaller table values need a little less shift
+
+const CAL_KEY = 'hr018_print_calibration_v2';
+let printCal = (() => { try { return JSON.parse(localStorage.getItem(CAL_KEY)) || {x:0,y:0,font:0}; } catch { return {x:0,y:0,font:0}; } })();
+function calibrationStyle(){
+  return `--cal-x:${printCal.x || 0}px;--cal-y:${printCal.y || 0}px;--cal-font:${printCal.font || 0}px;`;
+}
+function bindCalibration(){
+  const cy = $('calY'), cx = $('calX'), cf = $('calFont');
+  if(!cy || !cx || !cf) return;
+  const sync = () => {
+    cy.value = printCal.y || 0; cx.value = printCal.x || 0; cf.value = printCal.font || 0;
+    $('calYVal').textContent = cy.value; $('calXVal').textContent = cx.value; $('calFontVal').textContent = cf.value;
+  };
+  const apply = () => {
+    printCal = {x:Number(cx.value || 0), y:Number(cy.value || 0), font:Number(cf.value || 0)};
+    localStorage.setItem(CAL_KEY, JSON.stringify(printCal));
+    $('calYVal').textContent = printCal.y; $('calXVal').textContent = printCal.x; $('calFontVal').textContent = printCal.font;
+    document.querySelectorAll('.pdf-replica').forEach(el => el.setAttribute('style', calibrationStyle()));
+  };
+  [cy,cx,cf].forEach(el => el.addEventListener('input', apply));
+  const reset = $('btnResetCal');
+  if(reset) reset.addEventListener('click', () => { printCal = {x:0,y:0,font:0}; localStorage.setItem(CAL_KEY, JSON.stringify(printCal)); sync(); apply(); });
+  sync();
+}
+
+const PDF_VALUE_DY = 18;      // default: move typed text lower to sit on dotted lines
+const PDF_TINY_DY = 14;        // smaller table values need a little less shift
 function pdfVal(x,y,w,text,cls=''){
   const dy = cls.includes('tiny') ? PDF_TINY_DY : PDF_VALUE_DY;
   return `<span class="pdf-value ${cls}" style="${pdfStyle(x,y + dy,w)}">${esc(text || '')}</span>`;
@@ -255,7 +280,7 @@ function renderPrint(){
     pdfTiny(785,y,45,stats[type].count)
   ].join('');
   $('printDocument').innerHTML = `
-    <div class="pdf-replica" aria-label="HR-018 ใบลา แบบพิมพ์เหมือนไฟล์แนบ">
+    <div class="pdf-replica" style="${calibrationStyle()}" aria-label="HR-018 ใบลา แบบพิมพ์เหมือนไฟล์แนบ">
       <img class="template-img" src="./assets/hr018-template.png" alt="HR-018 template" />
       ${pdfVal(934,133,330,r.place)}
       ${pdfVal(955,174,48,dDoc.day)}${pdfVal(1030,174,135,dDoc.month)}${pdfVal(1195,174,78,dDoc.year)}
@@ -306,16 +331,16 @@ function exportCsv(){
 function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  initSubstituteInputs(); setFormData({}); await initDatabase(); appStarted = true; renderAll();
+  initSubstituteInputs(); setFormData({}); await initDatabase(); appStarted = true; renderAll(); bindCalibration();
   document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
   document.querySelectorAll('[data-jump="form"], #btnNew').forEach(btn => btn.addEventListener('click', () => { resetForm(); switchView('form'); }));
   $('leaveForm').addEventListener('submit', saveForm);
   $('btnReset').addEventListener('click', resetForm);
   $('startDate').addEventListener('change', calculateCurrentDays); $('endDate').addEventListener('change', calculateCurrentDays);
   $('searchBox').addEventListener('input', renderRecords);
-  $('printRecordSelect').addEventListener('change', e => { currentPrintId = e.target.value; renderPrint(); });
+  $('printRecordSelect').addEventListener('change', e => { currentPrintId = e.target.value; renderPrint(); bindCalibration(); });
   $('btnEditSelected').addEventListener('click', () => currentPrintId && editRecord(currentPrintId));
-  $('btnPrintFromForm').addEventListener('click', async () => { const temp = getFormData(); const existing = byId(temp.id); const payload = {...existing, ...temp, createdAt: existing?.createdAt || temp.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString()}; await persistRecord(payload); if(!firebaseReady){ const idx = records.findIndex(r => r.id === payload.id); if(idx >= 0) records[idx] = payload; else records.unshift(payload); } currentPrintId = payload.id; renderAll(); switchView('print'); });
+  $('btnPrintFromForm').addEventListener('click', async () => { const temp = getFormData(); const existing = byId(temp.id); const payload = {...existing, ...temp, createdAt: existing?.createdAt || temp.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString()}; await persistRecord(payload); if(!firebaseReady){ const idx = records.findIndex(r => r.id === payload.id); if(idx >= 0) records[idx] = payload; else records.unshift(payload); } currentPrintId = payload.id; renderAll(); switchView('print'); bindCalibration(); });
   $('btnImportLocal').addEventListener('click', importLocalToFirebase);
   $('btnExportJson').addEventListener('click', exportJson); $('btnExportCsv').addEventListener('click', exportCsv);
 });
