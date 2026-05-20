@@ -98,3 +98,7 @@ service cloud.firestore {
 ## นำเข้าข้อมูลเก่าจาก LocalStorage
 
 ถ้าเคยใช้เวอร์ชันเดิมที่เก็บข้อมูลในเครื่อง ให้กดปุ่ม `Import Local` หลังจากตั้งค่า Firebase แล้ว ระบบจะนำข้อมูลเดิมเข้า Firestore
+
+
+## Print fine tune update
+ค่าเริ่มต้นหน้า Print ถูกปรับเป็น x=-18, y=-14, font=3 เพื่อให้ข้อความใกล้เส้นประมากขึ้นจากภาพทดสอบล่าสุด และเปลี่ยน key calibration เป็น v3 เพื่อไม่ติด cache ค่าเดิมใน browser.

@@ -232,8 +232,8 @@ function pdfStyle(x,y,w=120,h=22){
   return `left:${(x/W*100).toFixed(4)}%;top:${(y/H*100).toFixed(4)}%;width:${(w/W*100).toFixed(4)}%;min-height:${(h/H*100).toFixed(4)}%;`;
 }
 
-const CAL_KEY = 'hr018_print_calibration_v2';
-let printCal = (() => { try { return JSON.parse(localStorage.getItem(CAL_KEY)) || {x:0,y:0,font:0}; } catch { return {x:0,y:0,font:0}; } })();
+const CAL_KEY = 'hr018_print_calibration_v3';
+let printCal = (() => { try { return JSON.parse(localStorage.getItem(CAL_KEY)) || {x:-18,y:-14,font:3}; } catch { return {x:-18,y:-14,font:3}; } })();
 function calibrationStyle(){
   return `--cal-x:${printCal.x || 0}px;--cal-y:${printCal.y || 0}px;--cal-font:${printCal.font || 0}px;`;
 }
@@ -252,7 +252,7 @@ function bindCalibration(){
   };
   [cy,cx,cf].forEach(el => el.addEventListener('input', apply));
   const reset = $('btnResetCal');
-  if(reset) reset.addEventListener('click', () => { printCal = {x:0,y:0,font:0}; localStorage.setItem(CAL_KEY, JSON.stringify(printCal)); sync(); apply(); });
+  if(reset) reset.addEventListener('click', () => { printCal = {x:-18,y:-14,font:3}; localStorage.setItem(CAL_KEY, JSON.stringify(printCal)); sync(); apply(); });
   sync();
 }
 
