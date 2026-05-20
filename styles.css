@@ -17,3 +17,4 @@
   .pdf-value{-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#111!important;background:transparent!important}
   .pdf-check{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:transparent!important;color:#111!important;border-color:transparent!important}
 }
+.db-pill{display:inline-flex;align-items:center;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;border:1px solid #d9e2ef;background:#f8fafc;color:#334155;white-space:nowrap}.db-pill.online{background:#ecfdf5;color:#047857;border-color:#a7f3d0}.db-pill.local{background:#fff7ed;color:#c2410c;border-color:#fed7aa}.db-pill.error{background:#fef2f2;color:#b91c1c;border-color:#fecaca}.db-pill.pending{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}

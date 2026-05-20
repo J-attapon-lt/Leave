@@ -1,8 +1,17 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+import { firebaseConfig, FIREBASE_COLLECTION, USE_FIREBASE } from './firebase-config.js';
+
 const STORAGE_KEY = 'hr018_leave_records_v1';
 const $ = (id) => document.getElementById(id);
 const leaveTypes = ['กิจ', 'ป่วย', 'คลอดบุตร', 'พักผ่อน'];
-let records = loadRecords();
-let currentPrintId = records[0]?.id || null;
+let records = [];
+let currentPrintId = null;
+let db = null;
+let leaveCollectionRef = null;
+let unsubscribeLeaves = null;
+let firebaseReady = false;
+let appStarted = false;
 
 const today = () => new Date().toISOString().slice(0, 10);
 const thaiDate = (iso) => {
@@ -15,10 +24,94 @@ const esc = (value) => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;
 const dotted = (value, width = 110) => `<span class="dotted" style="min-width:${width}px">${esc(value || '')}</span>`;
 const check = (active) => `<span class="box">${active ? '✓' : ''}</span>`;
 
-function loadRecords(){
+function loadLocalRecords(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
 }
-function saveRecords(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function saveLocalSnapshot(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function isFirebaseConfigured(){
+  return USE_FIREBASE && firebaseConfig?.apiKey && !String(firebaseConfig.apiKey).startsWith('YOUR_') && firebaseConfig?.projectId && !String(firebaseConfig.projectId).startsWith('YOUR_');
+}
+function setDbStatus(text, mode='pending'){
+  const el = $('dbStatus');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'db-pill ' + mode;
+}
+function stripFirestoreMeta(data){
+  const clean = {...data};
+  delete clean.createdAtServer;
+  delete clean.updatedAtServer;
+  return clean;
+}
+async function initDatabase(){
+  if(!isFirebaseConfigured()){
+    records = loadLocalRecords();
+    currentPrintId = records[0]?.id || null;
+    firebaseReady = false;
+    setDbStatus('Database: LocalStorage / ยังไม่ได้ตั้งค่า Firebase', 'local');
+    return;
+  }
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    try { await enableIndexedDbPersistence(db); } catch (_) {}
+    leaveCollectionRef = collection(db, FIREBASE_COLLECTION || 'hr018_leave_requests');
+    firebaseReady = true;
+    setDbStatus('Database: Firebase Firestore', 'online');
+    unsubscribeLeaves = onSnapshot(
+      query(leaveCollectionRef, orderBy('createdAt', 'desc')),
+      (snapshot) => {
+        records = snapshot.docs.map(d => stripFirestoreMeta({id:d.id, ...d.data()}));
+        if(!currentPrintId && records[0]) currentPrintId = records[0].id;
+        if(currentPrintId && !records.some(r => r.id === currentPrintId)) currentPrintId = records[0]?.id || null;
+        saveLocalSnapshot();
+        if(appStarted) renderAll();
+      },
+      (error) => {
+        console.error(error);
+        setDbStatus('Database: Firebase error - ใช้ LocalStorage ชั่วคราว', 'error');
+        firebaseReady = false;
+        records = loadLocalRecords();
+        currentPrintId = records[0]?.id || null;
+        renderAll();
+      }
+    );
+  } catch (error) {
+    console.error(error);
+    firebaseReady = false;
+    records = loadLocalRecords();
+    currentPrintId = records[0]?.id || null;
+    setDbStatus('Database: Firebase config error', 'error');
+  }
+}
+async function persistRecord(record){
+  if(firebaseReady && leaveCollectionRef){
+    const payload = {...record, updatedAt:new Date().toISOString(), updatedAtServer:serverTimestamp()};
+    if(!payload.createdAt) payload.createdAt = new Date().toISOString();
+    if(!byId(record.id)) payload.createdAtServer = serverTimestamp();
+    await setDoc(doc(db, FIREBASE_COLLECTION, record.id), payload, {merge:true});
+  } else {
+    const idx = records.findIndex(r => r.id === record.id);
+    if(idx >= 0) records[idx] = {...records[idx], ...record, updatedAt:new Date().toISOString()}; else records.unshift(record);
+    saveLocalSnapshot();
+  }
+}
+async function removeRecord(id){
+  if(firebaseReady && db){
+    await deleteDoc(doc(db, FIREBASE_COLLECTION, id));
+  } else {
+    records = records.filter(r => r.id !== id);
+    saveLocalSnapshot();
+  }
+}
+async function importLocalToFirebase(){
+  const local = loadLocalRecords();
+  if(!local.length){ alert('ไม่พบข้อมูล LocalStorage สำหรับนำเข้า'); return; }
+  if(!firebaseReady){ alert('ยังไม่ได้เชื่อมต่อ Firebase กรุณาตั้งค่า firebase-config.js ก่อน'); return; }
+  if(!confirm(`ต้องการนำเข้าข้อมูล LocalStorage จำนวน ${local.length} รายการเข้า Firebase ใช่ไหม?`)) return;
+  for(const item of local){ await persistRecord({...item, id:item.id || uid(), updatedAt:new Date().toISOString()}); }
+  alert('นำเข้าข้อมูลเข้า Firebase เรียบร้อย');
+}
 function uid(){ return 'LR-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).slice(2,6).toUpperCase(); }
 function dateDiffDays(start, end){
   if(!start || !end) return 0;
@@ -73,20 +166,30 @@ function setFormData(r = {}){
   [1,2,3,4].forEach(i => { const s = r.substitutes?.[i-1] || {}; $('subTask'+i).value = s.task || ''; $('subPerson'+i).value = s.person || ''; $('subSign'+i).value = s.sign || ''; });
 }
 function calculateCurrentDays(){ $('leaveDays').value = dateDiffDays($('startDate').value, $('endDate').value) || $('leaveDays').value || ''; }
-function saveForm(e){
+async function saveForm(e){
   e.preventDefault();
   const data = getFormData();
-  const idx = records.findIndex(r => r.id === data.id);
-  if(idx >= 0) records[idx] = {...records[idx], ...data, updatedAt:new Date().toISOString()}; else records.unshift(data);
-  saveRecords(); currentPrintId = data.id; renderAll(); switchView('print');
+  const existing = byId(data.id);
+  const payload = {...existing, ...data, createdAt: existing?.createdAt || data.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString()};
+  await persistRecord(payload);
+  if(!firebaseReady){ const idx = records.findIndex(r => r.id === payload.id); if(idx >= 0) records[idx] = payload; else records.unshift(payload); }
+  currentPrintId = payload.id; renderAll(); switchView('print');
 }
 function resetForm(){ $('leaveForm').reset(); setFormData({}); }
 function editRecord(id){ setFormData(byId(id)); switchView('form'); }
-function deleteRecord(id){
+async function deleteRecord(id){
   if(!confirm('ต้องการลบใบลานี้ใช่ไหม?')) return;
-  records = records.filter(r => r.id !== id); saveRecords(); currentPrintId = records[0]?.id || null; renderAll();
+  await removeRecord(id);
+  if(!firebaseReady){ records = records.filter(r => r.id !== id); }
+  currentPrintId = records[0]?.id || null; renderAll();
 }
-function duplicateRecord(id){ const src = byId(id); if(!src) return; const copy = {...src, id:uid(), docDate:today(), approvalStatus:'รอตรวจสอบ', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()}; records.unshift(copy); saveRecords(); currentPrintId = copy.id; renderAll(); }
+async function duplicateRecord(id){
+  const src = byId(id); if(!src) return;
+  const copy = {...src, id:uid(), docDate:today(), approvalStatus:'รอตรวจสอบ', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()};
+  await persistRecord(copy);
+  if(!firebaseReady){ records.unshift(copy); }
+  currentPrintId = copy.id; renderAll();
+}
 function statusBadge(status){ const cls = status === 'อนุญาต' ? 'approved' : status === 'ไม่อนุญาต' ? 'rejected' : 'pending'; return `<span class="badge ${cls}">${esc(status || 'รอตรวจสอบ')}</span>`; }
 function renderDashboard(){
   $('statTotal').textContent = records.length;
@@ -199,8 +302,8 @@ function exportCsv(){
 }
 function downloadBlob(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
 
-document.addEventListener('DOMContentLoaded', () => {
-  initSubstituteInputs(); setFormData({}); renderAll();
+document.addEventListener('DOMContentLoaded', async () => {
+  initSubstituteInputs(); setFormData({}); await initDatabase(); appStarted = true; renderAll();
   document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchView(btn.dataset.view)));
   document.querySelectorAll('[data-jump="form"], #btnNew').forEach(btn => btn.addEventListener('click', () => { resetForm(); switchView('form'); }));
   $('leaveForm').addEventListener('submit', saveForm);
@@ -209,7 +312,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('searchBox').addEventListener('input', renderRecords);
   $('printRecordSelect').addEventListener('change', e => { currentPrintId = e.target.value; renderPrint(); });
   $('btnEditSelected').addEventListener('click', () => currentPrintId && editRecord(currentPrintId));
-  $('btnPrintFromForm').addEventListener('click', () => { const temp = getFormData(); const idx = records.findIndex(r => r.id === temp.id); if(idx >= 0) records[idx] = temp; else records.unshift(temp); saveRecords(); currentPrintId = temp.id; renderAll(); switchView('print'); });
+  $('btnPrintFromForm').addEventListener('click', async () => { const temp = getFormData(); const existing = byId(temp.id); const payload = {...existing, ...temp, createdAt: existing?.createdAt || temp.createdAt || new Date().toISOString(), updatedAt:new Date().toISOString()}; await persistRecord(payload); if(!firebaseReady){ const idx = records.findIndex(r => r.id === payload.id); if(idx >= 0) records[idx] = payload; else records.unshift(payload); } currentPrintId = payload.id; renderAll(); switchView('print'); });
+  $('btnImportLocal').addEventListener('click', importLocalToFirebase);
   $('btnExportJson').addEventListener('click', exportJson); $('btnExportCsv').addEventListener('click', exportCsv);
 });
 window.editRecord = editRecord; window.deleteRecord = deleteRecord; window.duplicateRecord = duplicateRecord; window.switchView = switchView;
