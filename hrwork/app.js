@@ -231,11 +231,8 @@ function pdfStyle(x,y,w=120,h=22){
   const W=1323,H=1874;
   return `left:${(x/W*100).toFixed(4)}%;top:${(y/H*100).toFixed(4)}%;width:${(w/W*100).toFixed(4)}%;min-height:${(h/H*100).toFixed(4)}%;`;
 }
-const PDF_VALUE_DY = 11;      // move typed text down to sit on dotted lines
-const PDF_TINY_DY = 8;        // smaller table values need a little less shift
 function pdfVal(x,y,w,text,cls=''){
-  const dy = cls.includes('tiny') ? PDF_TINY_DY : PDF_VALUE_DY;
-  return `<span class="pdf-value ${cls}" style="${pdfStyle(x,y + dy,w)}">${esc(text || '')}</span>`;
+  return `<span class="pdf-value ${cls}" style="${pdfStyle(x,y,w)}">${esc(text || '')}</span>`;
 }
 function pdfTiny(x,y,w,text){ return pdfVal(x,y,w,text,'tiny'); }
 function pdfCheck(x,y,active){ return `<span class="pdf-check" style="${pdfStyle(x,y,28,28)}">${active ? '✓' : ''}</span>`; }
